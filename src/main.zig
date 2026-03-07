@@ -85,17 +85,22 @@ fn processFile(
     dry_run: bool,
     show_header: bool,
 ) !void {
-    const file = base_dir.openFile(path, .{}) catch |err| {
-        fs.File.stderr().deprecatedWriter().print(
-            "error: cannot open '{s}': {s}\n",
-            .{ path, @errorName(err) },
-        ) catch {};
-        return err;
-    };
-    defer file.close();
-
     const max_size = 1024 * 1024 * 1024; // 1 GiB limit
-    const input = try file.deprecatedReader().readAllAlloc(allocator, max_size);
+    const input = blk: {
+        const file = base_dir.openFile(path, .{}) catch |err| {
+            fs.File.stderr().deprecatedWriter().print(
+                "error: cannot open '{s}': {s}\n",
+                .{ path, @errorName(err) },
+            ) catch {};
+            return err;
+        };
+        const data = file.deprecatedReader().readAllAlloc(allocator, max_size) catch |err| {
+            file.close();
+            return err;
+        };
+        file.close();
+        break :blk data;
+    };
     defer allocator.free(input);
 
     var output: std.ArrayList(u8) = .empty;
