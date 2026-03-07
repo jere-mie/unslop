@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g. v1.0.0)"
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-linux-musl
+            os_name: linux
+            arch_name: x86_64
+            bin_ext: ""
+          - target: aarch64-linux-musl
+            os_name: linux
+            arch_name: aarch64
+            bin_ext: ""
+          - target: x86_64-macos
+            os_name: macos
+            arch_name: x86_64
+            bin_ext: ""
+          - target: aarch64-macos
+            os_name: macos
+            arch_name: aarch64
+            bin_ext: ""
+          - target: x86_64-windows
+            os_name: windows
+            arch_name: x86_64
+            bin_ext: ".exe"
+          - target: aarch64-windows
+            os_name: windows
+            arch_name: aarch64
+            bin_ext: ".exe"
+          - target: wasm32-wasi
+            os_name: wasm32
+            arch_name: wasi
+            bin_ext: ".wasm"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Build
+        run: zig build -Doptimize=ReleaseFast -Dtarget=${{ matrix.target }}
+
+      - name: Stage binary
+        run: |
+          BINARY_NAME="unslop-${{ matrix.os_name }}-${{ matrix.arch_name }}${{ matrix.bin_ext }}"
+          cp "zig-out/bin/unslop${{ matrix.bin_ext }}" "$BINARY_NAME"
+          echo "BINARY_NAME=$BINARY_NAME" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: unslop-${{ matrix.os_name }}-${{ matrix.arch_name }}
+          path: ${{ env.BINARY_NAME }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum * > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: Release ${{ inputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/*
+
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum * > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: Release ${{ inputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/*
