@@ -55,6 +55,13 @@ jobs:
       - name: Build
         run: zig build -Doptimize=ReleaseFast -Dtarget=${{ matrix.target }}
 
+      - name: Smoke test (native targets only)
+        if: matrix.os_name != 'wasm32'
+        run: |
+          echo "Hello world" > /tmp/smoke.txt
+          zig-out/bin/unslop${{ matrix.bin_ext }} /tmp/smoke.txt
+          zig-out/bin/unslop${{ matrix.bin_ext }} --help
+
       - name: Stage binary
         run: |
           BINARY_NAME="unslop-${{ matrix.os_name }}-${{ matrix.arch_name }}${{ matrix.bin_ext }}"
