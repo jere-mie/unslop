@@ -2,3 +2,5 @@
 zig-out/
 *.o
 instructions.md
+skills/
+*.exe

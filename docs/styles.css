@@ -1,0 +1,1013 @@
+    /* ─── Reset & Base ─────────────────────────────────────────────── */
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    :root {
+        --bg: #0A0A09;
+        --surface: #141412;
+        --surface2: #1C1C1A;
+        --border: #2A2A27;
+        --accent: #C5FF00;
+        --accent-dim: #8AB300;
+        --text: #EDE8DC;
+        --muted: #7A7468;
+        --danger: #FF4040;
+        --mark-bg: rgba(197, 255, 0, 0.18);
+        --mark-border: rgba(197, 255, 0, 0.6);
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Lora', Georgia, serif;
+        font-size: 16px;
+        line-height: 1.7;
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    .ui-font {
+        font-family: 'Syne', sans-serif;
+    }
+
+    code,
+    pre,
+    .mono,
+    textarea,
+    .output-display {
+        font-family: 'Courier Prime', 'Courier New', monospace;
+    }
+
+    a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    a:hover {
+        text-decoration: underline;
+    }
+
+    /* ─── Noise grain overlay ───────────────────────────────────────── */
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.035;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        background-repeat: repeat;
+        background-size: 256px;
+    }
+
+    /* ─── Layout wrapper ────────────────────────────────────────────── */
+    .container {
+        position: relative;
+        z-index: 1;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 2rem;
+    }
+
+    /* ─── Header / Hero ─────────────────────────────────────────────── */
+    header {
+        position: relative;
+        border-bottom: 1px solid var(--border);
+        padding: 4rem 0 3rem;
+        overflow: hidden;
+    }
+
+    header .container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .hero-stripe {
+        position: absolute;
+        top: 0;
+        right: -60px;
+        width: 420px;
+        height: 100%;
+        background: repeating-linear-gradient(-55deg,
+                transparent,
+                transparent 18px,
+                rgba(197, 255, 0, 0.04) 18px,
+                rgba(197, 255, 0, 0.04) 36px);
+        pointer-events: none;
+    }
+
+    .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--bg);
+        background: var(--accent);
+        padding: 0.3rem 0.75rem;
+        width: fit-content;
+    }
+
+    h1 {
+        font-size: clamp(3.5rem, 10vw, 6.5rem);
+        font-weight: 800;
+        line-height: 0.92;
+        letter-spacing: -0.03em;
+        color: var(--text);
+    }
+
+    h1 span.accent {
+        color: var(--accent);
+    }
+
+    .tagline {
+        font-family: 'Lora', serif;
+        font-style: italic;
+        font-size: 1.2rem;
+        color: var(--muted);
+        max-width: 540px;
+        line-height: 1.5;
+    }
+
+    .hero-nav {
+        display: flex;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        margin-top: 0.5rem;
+    }
+
+    .hero-nav a {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.15rem;
+        transition: color 0.2s, border-color 0.2s;
+    }
+
+    .hero-nav a:hover {
+        color: var(--accent);
+        border-color: var(--accent);
+        text-decoration: none;
+    }
+
+    /* ─── Section titles ────────────────────────────────────────────── */
+    .section-header {
+        display: flex;
+        align-items: baseline;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .section-header h2 {
+        font-size: 1.8rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+
+    .section-header .rule {
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+    }
+
+    /* ─── Tool section ──────────────────────────────────────────────── */
+    #tool {
+        padding: 4rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .editor-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        border: 1px solid var(--border);
+    }
+
+    .editor-pane {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .editor-pane+.editor-pane {
+        border-left: 1px solid var(--border);
+    }
+
+    .pane-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.6rem 1rem;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+    }
+
+    .pane-label {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .pane-label.output-label {
+        color: var(--accent);
+    }
+
+    .pane-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .btn-copy {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 0.25rem 0.7rem;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .btn-copy:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+
+    .btn-copy.copied {
+        border-color: var(--accent);
+        color: var(--bg);
+        background: var(--accent);
+    }
+
+    .btn-clear {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 0.25rem 0.7rem;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .btn-clear:hover {
+        border-color: #555;
+        color: var(--text);
+    }
+
+    #input-area {
+        width: 100%;
+        min-height: 340px;
+        background: var(--surface);
+        border: none;
+        outline: none;
+        color: var(--text);
+        font-size: 0.94rem;
+        line-height: 1.75;
+        padding: 1.25rem 1.25rem;
+        resize: vertical;
+        field-sizing: content;
+    }
+
+    #input-area::placeholder {
+        color: #555248;
+    }
+
+    .output-display {
+        min-height: 340px;
+        background: var(--surface2);
+        padding: 1.25rem 1.25rem;
+        font-size: 0.94rem;
+        line-height: 1.75;
+        color: var(--text);
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-y: auto;
+        user-select: text;
+    }
+
+    .output-display mark {
+        background: var(--mark-bg);
+        color: var(--accent);
+        border-bottom: 1px solid var(--mark-border);
+        border-radius: 0;
+        padding: 0;
+        font-style: normal;
+        animation: flash-in 0.3s ease;
+    }
+
+    @keyframes flash-in {
+        from {
+            background: rgba(197, 255, 0, 0.45);
+        }
+
+        to {
+            background: var(--mark-bg);
+        }
+    }
+
+    .output-empty {
+        color: #555248;
+        font-style: italic;
+    }
+
+    /* ─── Stats bar ─────────────────────────────────────────────────── */
+    .stats-bar {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        padding: 0.75rem 1.25rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-top: none;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .stat-item .stat-num {
+        color: var(--accent);
+        font-size: 1rem;
+        font-weight: 800;
+        transition: transform 0.15s;
+    }
+
+    .stat-item .stat-num.bump {
+        animation: num-bump 0.25s ease;
+    }
+
+    @keyframes num-bump {
+        0% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.35);
+        }
+
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    .stats-bar .stat-divider {
+        width: 1px;
+        height: 1.2rem;
+        background: var(--border);
+    }
+
+    .stat-pill {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .type-badge {
+        display: inline-block;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0.15rem 0.45rem;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        color: var(--muted);
+        transition: all 0.2s;
+    }
+
+    .type-badge.active {
+        border-color: var(--accent-dim);
+        color: var(--accent);
+    }
+
+    /* ─── Character map table ──────────────────────────────────────── */
+    #what-we-strip {
+        padding: 4rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .char-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .char-table thead {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .char-table th {
+        padding: 0.6rem 1rem;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+    }
+
+    .char-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+    }
+
+    .char-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .char-table tr:hover td {
+        background: var(--surface);
+    }
+
+    .char-cell {
+        font-size: 1.4rem;
+        color: var(--danger);
+    }
+
+    .char-arrow {
+        color: var(--muted);
+        font-family: 'Syne', sans-serif;
+        font-size: 0.85rem;
+    }
+
+    .char-result {
+        font-size: 1.1rem;
+        color: var(--accent);
+        font-family: 'Courier Prime', monospace;
+    }
+
+    .char-name {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-style: italic;
+    }
+
+    .char-unicode {
+        font-family: 'Courier Prime', monospace;
+        font-size: 0.8rem;
+        color: #555;
+    }
+
+    /* ─── File upload / download buttons ───────────────────────────── */
+    .btn-file {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 0.25rem 0.7rem;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
+
+    .btn-file:hover {
+        border-color: var(--accent-dim);
+        color: var(--accent);
+    }
+
+    .btn-download {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 0.25rem 0.7rem;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-download:hover {
+        border-color: var(--accent-dim);
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    .btn-download:disabled,
+    .btn-download.disabled {
+        opacity: 0.35;
+        pointer-events: none;
+    }
+
+    /* ─── Install accordion ─────────────────────────────────────────── */
+    #install {
+        padding: 4rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .install-grid {
+        border: 1px solid var(--border);
+    }
+
+    .install-item {
+        border-bottom: 1px solid var(--border);
+    }
+
+    .install-item:last-child {
+        border-bottom: none;
+    }
+
+    .install-item.install-item-wide {
+        border-bottom: none;
+    }
+
+    .install-toggle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        background: var(--surface);
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.15s;
+    }
+
+    .install-toggle:hover {
+        background: var(--surface2);
+    }
+
+    .install-toggle.open {
+        background: var(--surface2);
+    }
+
+    .install-toggle-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .install-platform-icon {
+        font-size: 1.1rem;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+
+    .install-platform-name {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text);
+    }
+
+    .install-chevron {
+        color: var(--muted);
+        font-size: 0.65rem;
+        transition: transform 0.2s;
+        flex-shrink: 0;
+    }
+
+    .install-toggle.open .install-chevron {
+        transform: rotate(180deg);
+        color: var(--accent);
+    }
+
+    .install-content {
+        display: none;
+        padding: 1.25rem;
+        background: var(--bg);
+        border-top: 1px solid var(--border);
+    }
+
+    .install-content.open {
+        display: block;
+    }
+
+    /* ─── Code blocks ───────────────────────────────────────────────── */
+    .code-block-wrap {
+        position: relative;
+        margin: 0.75rem 0;
+    }
+
+    pre.code-block {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        padding: 1rem 1.25rem;
+        overflow-x: auto;
+        font-size: 0.88rem;
+        line-height: 1.6;
+        color: var(--text);
+        margin: 0;
+    }
+
+    pre.code-block .comment {
+        color: var(--muted);
+        font-style: italic;
+    }
+
+    pre.code-block .cmd {
+        color: var(--accent);
+    }
+
+    .code-label {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+        margin-top: 1rem;
+    }
+
+    .code-label:first-child {
+        margin-top: 0;
+    }
+
+    .copy-code-btn {
+        position: absolute;
+        top: 0.6rem;
+        right: 0.6rem;
+        z-index: 1;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 0.2rem 0.55rem;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .copy-code-btn:hover {
+        color: var(--accent);
+        border-color: var(--accent);
+    }
+
+    .copy-code-btn.copied {
+        color: var(--bg);
+        background: var(--accent);
+        border-color: var(--accent);
+    }
+
+    /* ─── Usage section ─────────────────────────────────────────────── */
+    #usage {
+        padding: 4rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .usage-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+    }
+
+    .options-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+    }
+
+    .options-table th {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+    }
+
+    .options-table td {
+        padding: 0.65rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+    }
+
+    .options-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .options-table tr:hover td {
+        background: var(--surface);
+    }
+
+    .option-flag {
+        font-family: 'Courier Prime', monospace;
+        font-size: 0.88rem;
+        color: var(--accent);
+        white-space: nowrap;
+    }
+
+    .option-desc {
+        color: var(--muted);
+        line-height: 1.5;
+    }
+
+    .usage-example {
+        margin-top: 0.5rem;
+    }
+
+    .usage-example h4 {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 0.5rem;
+    }
+
+    /* ─── Why Zig ───────────────────────────────────────────────────── */
+    #why-zig {
+        padding: 4rem 0;
+    }
+
+    .why-zig-inner {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 3rem;
+        align-items: start;
+    }
+
+    .big-zig {
+        font-family: 'Syne', sans-serif;
+        font-size: 5rem;
+        font-weight: 800;
+        line-height: 1;
+        color: var(--border);
+        letter-spacing: -0.04em;
+        user-select: none;
+    }
+
+    .big-zig span {
+        color: var(--accent);
+    }
+
+    .why-zig-text p {
+        color: var(--muted);
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+    }
+
+    .why-zig-text p:last-child {
+        margin-bottom: 0;
+    }
+
+    .why-zig-text strong {
+        color: var(--text);
+    }
+
+    /* ─── Footer ────────────────────────────────────────────────────── */
+    footer {
+        border-top: 1px solid var(--border);
+        padding: 2rem 0;
+    }
+
+    footer .container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .footer-brand {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--muted);
+    }
+
+    .footer-brand span {
+        color: var(--accent);
+    }
+
+    .footer-links {
+        display: flex;
+        gap: 1.5rem;
+    }
+
+    .footer-links a {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        transition: color 0.15s;
+    }
+
+    .footer-links a:hover {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    /* ─── Page load animation ───────────────────────────────────────── */
+    @keyframes fade-up {
+        from {
+            opacity: 0;
+            transform: translateY(16px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .fade-in {
+        animation: fade-up 0.55s ease both;
+    }
+
+    .fade-in-1 {
+        animation-delay: 0.05s;
+    }
+
+    .fade-in-2 {
+        animation-delay: 0.15s;
+    }
+
+    .fade-in-3 {
+        animation-delay: 0.25s;
+    }
+
+    .fade-in-4 {
+        animation-delay: 0.35s;
+    }
+
+    /* ─── Responsive ────────────────────────────────────────────────── */
+    @media (max-width: 760px) {
+        .container {
+            padding: 0 1rem;
+        }
+
+        header {
+            padding: 2.5rem 0 2rem;
+        }
+
+        h1 {
+            font-size: clamp(2.4rem, 13vw, 4.5rem);
+        }
+
+        h2 {
+            font-size: clamp(1.2rem, 6vw, 1.8rem);
+        }
+
+        .tagline {
+            font-size: 1rem;
+        }
+
+        .hero-nav {
+            gap: 0.75rem;
+        }
+
+        .hero-nav a {
+            font-size: 0.72rem;
+        }
+
+        .editor-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .editor-pane {
+            min-width: 0;
+        }
+
+        .editor-pane+.editor-pane {
+            border-left: none;
+            border-top: 1px solid var(--border);
+        }
+
+        .pane-header {
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            padding: 0.5rem 0.75rem;
+        }
+
+        .pane-label {
+            font-size: 0.62rem;
+        }
+
+        .pane-actions {
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .stats-bar {
+            gap: 0.6rem;
+            padding: 0.6rem 0.75rem;
+        }
+
+        .stat-pill {
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .stat-divider {
+            display: none;
+        }
+
+        .char-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        .char-table th:nth-child(2),
+        .char-table td:nth-child(2),
+        .char-table th:nth-child(3),
+        .char-table td:nth-child(3) {
+            display: none;
+        }
+
+        .char-table th,
+        .char-table td {
+            padding: 0.65rem 0.5rem;
+        }
+
+        .usage-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .why-zig-inner {
+            grid-template-columns: 1fr;
+        }
+
+        .big-zig {
+            font-size: 3rem;
+        }
+
+        pre.code-block {
+            font-size: 0.8rem;
+            padding: 0.75rem 0.9rem;
+            word-break: break-all;
+        }
+
+        footer .container {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 480px) {
+        h1 {
+            font-size: clamp(2rem, 15vw, 3rem);
+        }
+
+        .type-badge {
+            font-size: 0.55rem;
+            padding: 0.12rem 0.35rem;
+        }
+    }

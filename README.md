@@ -1,6 +1,6 @@
 # 🎨 unslop
 
-![unslop](unslop.webp)
+![unslop](docs/unslop.webp)
 
 **Stop sounding like a bot.** Most LLMs and agentic coding tools (like Claude, ChatGPT, and GitHub Copilot) default to "smart" typography. While it looks nice in a word processor, it creates a distinct "AI Fingerprint" in documentation, commit messages, and blog posts.
 

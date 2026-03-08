@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>unslop - Strip the LLM Accent</title>
+  <meta name="description" content="Remove AI-generated typography fingerprints: curly quotes, em dashes, ellipses, and non-breaking spaces. Free online tool and Zig CLI.">
+  <meta name="keywords" content="unslop, AI text cleaner, remove smart quotes, em dash remover, LLM text, humanize AI text, Zig CLI tool">
+  <meta name="author" content="Jeremie Bornais">
+  <meta name="theme-color" content="#0A0A09">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://jere-mie.github.io/unslop/">
+  <meta property="og:title" content="unslop - Strip the LLM Accent">
+  <meta property="og:description" content="Stop sounding like a bot. Strip curly quotes, em dashes, and ellipses - the invisible fingerprints AI leaves on everything it writes.">
+  <meta property="og:image" content="https://jere-mie.github.io/unslop/unslop.webp">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="unslop - Strip the LLM Accent">
+  <meta name="twitter:description" content="Stop sounding like a bot. Strip curly quotes, em dashes, and ellipses from AI-generated text.">
+  <meta name="twitter:image" content="https://jere-mie.github.io/unslop/unslop.webp">
+
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230A0A09' rx='4'/><text x='16' y='20' font-family='sans-serif' font-size='15' font-weight='900' fill='%23C5FF00' text-anchor='middle'>un</text></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Lora:ital,wght@0,400;0,600;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ─── Header ──────────────────────────────────────────────────────── -->
+<header>
+  <div class="hero-stripe"></div>
+  <div class="container">
+    <div class="hero-badge fade-in fade-in-1">&#9888; LLM Accent Removal Tool</div>
+    <h1 class="fade-in fade-in-2"><span class="accent">un</span>slop</h1>
+    <p class="tagline fade-in fade-in-3">Stop sounding like a bot. Strip curly quotes, em dashes, and ellipses: the invisible fingerprints AI leaves on everything it writes.</p>
+    <nav class="hero-nav fade-in fade-in-4">
+      <a href="#tool">Try It Online</a>
+      <a href="#what-we-strip">What We Strip</a>
+      <a href="#install">Install CLI</a>
+      <a href="#usage">Usage</a>
+      <a href="https://github.com/jere-mie/unslop" target="_blank" rel="noopener">GitHub &nearr;</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ─── Tool ─────────────────────────────────────────────────────────── -->
+<section id="tool">
+  <div class="container">
+    <div class="section-header">
+      <h2>Decontaminate</h2>
+      <div class="rule"></div>
+    </div>
+
+    <div class="editor-grid">
+      <!-- Input -->
+      <div class="editor-pane">
+        <div class="pane-header">
+          <span class="pane-label">Input</span>
+          <div class="pane-actions">
+            <button class="btn-file" id="btn-upload" title="Upload a text file">Upload file</button>
+            <input type="file" id="file-input" accept=".txt,.md,.markdown,.html,.css,.js,.ts,.json,.yaml,.yml,.toml,.csv,.xml,.rst,.tex" style="display:none">
+            <button class="btn-clear" id="btn-clear">Clear</button>
+          </div>
+        </div>
+        <textarea
+          id="input-area"
+          spellcheck="false"
+          placeholder="Paste text with &#x201C;smart quotes,&#x201D; em&#x2014;dashes, ellipses&#x2026; and watch them vanish."
+        ></textarea>
+      </div>
+
+      <!-- Output -->
+      <div class="editor-pane">
+        <div class="pane-header">
+          <span class="pane-label output-label">Output</span>
+          <div class="pane-actions">
+            <button class="btn-download disabled" id="btn-download" title="Download cleaned file">Download</button>
+            <button class="btn-copy" id="btn-copy">Copy</button>
+          </div>
+        </div>
+        <div class="output-display" id="output-display">
+          <span class="output-empty">Your cleaned text will appear here. Replacements are highlighted in&nbsp;<mark style="background:var(--mark-bg);color:var(--accent);border-bottom:1px solid var(--mark-border);padding:0 2px;">green</mark>.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar" id="stats-bar">
+      <div class="stat-item">
+        <span class="stat-num" id="stat-total">0</span>
+        <span>replacements</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-pill">
+        <span class="type-badge" id="badge-dquote" title="Curly double quotes">&ldquo;&rdquo; quotes</span>
+        <span class="type-badge" id="badge-squote" title="Curly single quotes">&lsquo;&rsquo; quotes</span>
+        <span class="type-badge" id="badge-emdash" title="Em dash">em&nbsp;&mdash;</span>
+        <span class="type-badge" id="badge-endash" title="En dash">en&nbsp;&ndash;</span>
+        <span class="type-badge" id="badge-ellipsis" title="Ellipsis">&hellip; ellipsis</span>
+        <span class="type-badge" id="badge-nbsp" title="Non-breaking space">nbsp</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Character map ─────────────────────────────────────────────────── -->
+<section id="what-we-strip">
+  <div class="container">
+    <div class="section-header">
+      <h2>What We Strip</h2>
+      <div class="rule"></div>
+    </div>
+    <table class="char-table">
+      <thead>
+        <tr>
+          <th>Character</th>
+          <th>Unicode</th>
+          <th>Name</th>
+          <th></th>
+          <th>Replaced With</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="char-cell">&ldquo; &rdquo;</span></td>
+          <td><span class="char-unicode">U+201C / U+201D</span></td>
+          <td><span class="char-name">Left &amp; right double quotation marks</span></td>
+          <td><span class="char-arrow">&rarr;</span></td>
+          <td><span class="char-result">"</span></td>
+        </tr>
+        <tr>
+          <td><span class="char-cell">&lsquo; &rsquo;</span></td>
+          <td><span class="char-unicode">U+2018 / U+2019</span></td>
+          <td><span class="char-name">Left &amp; right single quotation marks</span></td>
+          <td><span class="char-arrow">&rarr;</span></td>
+          <td><span class="char-result">'</span></td>
+        </tr>
+        <tr>
+          <td><span class="char-cell">&mdash;</span></td>
+          <td><span class="char-unicode">U+2014</span></td>
+          <td><span class="char-name">Em dash</span></td>
+          <td><span class="char-arrow">&rarr;</span></td>
+          <td><span class="char-result">-</span></td>
+        </tr>
+        <tr>
+          <td><span class="char-cell">&ndash;</span></td>
+          <td><span class="char-unicode">U+2013</span></td>
+          <td><span class="char-name">En dash</span></td>
+          <td><span class="char-arrow">&rarr;</span></td>
+          <td><span class="char-result">-</span></td>
+        </tr>
+        <tr>
+          <td><span class="char-cell">&hellip;</span></td>
+          <td><span class="char-unicode">U+2026</span></td>
+          <td><span class="char-name">Horizontal ellipsis</span></td>
+          <td><span class="char-arrow">&rarr;</span></td>
+          <td><span class="char-result">...</span></td>
+        </tr>
+        <tr>
+          <td><span class="char-cell" title="Non-breaking space (invisible)">[&nbsp;]</span></td>
+          <td><span class="char-unicode">U+00A0</span></td>
+          <td><span class="char-name">Non-breaking space</span></td>
+          <td><span class="char-arrow">&rarr;</span></td>
+          <td><span class="char-result">[ ]</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─── Install ───────────────────────────────────────────────────────── -->
+<section id="install">
+  <div class="container">
+    <div class="section-header">
+      <h2>Install the CLI</h2>
+      <div class="rule"></div>
+    </div>
+    <p style="color:var(--muted);margin-bottom:1.75rem;font-size:0.95rem;">
+      Grab a pre-built static binary for your platform, or build from source with Zig.
+    </p>
+
+    <div class="install-grid">
+
+      <!-- Linux x86_64 -->
+      <div class="install-item">
+        <button class="install-toggle" data-target="inst-linux-x64">
+          <span class="install-toggle-left">
+            <span class="install-platform-icon">🐧</span>
+            <span class="install-platform-name">Linux x86_64</span>
+          </span>
+          <span class="install-chevron">&#9660;</span>
+        </button>
+        <div class="install-content" id="inst-linux-x64">
+          <pre class="code-block"><button class="copy-code-btn" onclick="copyCode(this)">Copy</button><span class="cmd">curl</span> -Lo unslop https://github.com/jere-mie/unslop/releases/latest/download/unslop-linux-x86_64
+<span class="cmd">chmod</span> +x unslop &amp;&amp; sudo mv unslop /usr/local/bin/</pre>
+        </div>
+      </div>
+
+      <!-- Linux ARM64 -->
+      <div class="install-item">
+        <button class="install-toggle" data-target="inst-linux-arm">
+          <span class="install-toggle-left">
+            <span class="install-platform-icon">🐧</span>
+            <span class="install-platform-name">Linux ARM64</span>
+          </span>
+          <span class="install-chevron">&#9660;</span>
+        </button>
+        <div class="install-content" id="inst-linux-arm">
+          <pre class="code-block"><button class="copy-code-btn" onclick="copyCode(this)">Copy</button><span class="cmd">curl</span> -Lo unslop https://github.com/jere-mie/unslop/releases/latest/download/unslop-linux-aarch64
+<span class="cmd">chmod</span> +x unslop &amp;&amp; sudo mv unslop /usr/local/bin/</pre>
+        </div>
+      </div>
+
+      <!-- macOS Apple Silicon -->
+      <div class="install-item">
+        <button class="install-toggle" data-target="inst-macos-arm">
+          <span class="install-toggle-left">
+            <span class="install-platform-icon">🍎</span>
+            <span class="install-platform-name">macOS (Apple Silicon)</span>
+          </span>
+          <span class="install-chevron">&#9660;</span>
+        </button>
+        <div class="install-content" id="inst-macos-arm">
+          <pre class="code-block"><button class="copy-code-btn" onclick="copyCode(this)">Copy</button><span class="cmd">curl</span> -Lo unslop https://github.com/jere-mie/unslop/releases/latest/download/unslop-macos-aarch64
+<span class="cmd">chmod</span> +x unslop &amp;&amp; sudo mv unslop /usr/local/bin/</pre>
+        </div>
+      </div>
+
+      <!-- macOS Intel -->
+      <div class="install-item">
+        <button class="install-toggle" data-target="inst-macos-x64">
+          <span class="install-toggle-left">
+            <span class="install-platform-icon">🍎</span>
+            <span class="install-platform-name">macOS (Intel)</span>
+          </span>
+          <span class="install-chevron">&#9660;</span>
+        </button>
+        <div class="install-content" id="inst-macos-x64">
+          <pre class="code-block"><button class="copy-code-btn" onclick="copyCode(this)">Copy</button><span class="cmd">curl</span> -Lo unslop https://github.com/jere-mie/unslop/releases/latest/download/unslop-macos-x86_64
+<span class="cmd">chmod</span> +x unslop &amp;&amp; sudo mv unslop /usr/local/bin/</pre>
+        </div>
+      </div>
+
+      <!-- Windows -->
+      <div class="install-item">
+        <button class="install-toggle" data-target="inst-windows">
+          <span class="install-toggle-left">
+            <span class="install-platform-icon">🪟</span>
+            <span class="install-platform-name">Windows</span>
+          </span>
+          <span class="install-chevron">&#9660;</span>
+        </button>
+        <div class="install-content" id="inst-windows">
+          <div class="code-label">PowerShell</div>
+          <pre class="code-block"><button class="copy-code-btn" onclick="copyCode(this)">Copy</button><span class="cmd">Invoke-WebRequest</span> -Uri "https://github.com/jere-mie/unslop/releases/latest/download/unslop-windows-x86_64.exe" -OutFile "unslop.exe"
+<span class="comment"># Move to a directory on your PATH, e.g.:</span>
+<span class="cmd">Move-Item</span> unslop.exe "$env:USERPROFILE\bin\unslop.exe"</pre>
+        </div>
+      </div>
+
+      <!-- WASM/WASI -->
+      <div class="install-item">
+        <button class="install-toggle" data-target="inst-wasm">
+          <span class="install-toggle-left">
+            <span class="install-platform-icon">🌐</span>
+            <span class="install-platform-name">WASM / WASI</span>
+          </span>
+          <span class="install-chevron">&#9660;</span>
+        </button>
+        <div class="install-content" id="inst-wasm">
+          <pre class="code-block"><button class="copy-code-btn" onclick="copyCode(this)">Copy</button><span class="cmd">curl</span> -Lo unslop.wasm https://github.com/jere-mie/unslop/releases/latest/download/unslop-wasm32-wasi.wasm</pre>
+          <div class="code-label" style="margin-top:0.75rem;">Run with wasmtime</div>
+          <pre class="code-block"><button class="copy-code-btn" onclick="copyCode(this)">Copy</button><span class="cmd">wasmtime</span> --dir=. unslop.wasm myfile.txt</pre>
+          <p style="color:var(--muted);font-size:0.82rem;margin-top:0.6rem;">Requires <a href="https://wasmtime.dev/" target="_blank" rel="noopener">wasmtime</a>. Use <code>--dir=.</code> to grant filesystem access.</p>
+        </div>
+      </div>
+
+      <!-- Build from source -->
+      <div class="install-item install-item-wide">
+        <button class="install-toggle" data-target="inst-source">
+          <span class="install-toggle-left">
+            <span class="install-platform-icon">🔨</span>
+            <span class="install-platform-name">Build from Source (Zig)</span>
+          </span>
+          <span class="install-chevron">&#9660;</span>
+        </button>
+        <div class="install-content" id="inst-source">
+          <p style="color:var(--muted);font-size:0.88rem;margin-bottom:0.75rem;">Requires <a href="https://ziglang.org/download/" target="_blank" rel="noopener">Zig</a> &ge; 0.14.</p>
+          <pre class="code-block"><button class="copy-code-btn" onclick="copyCode(this)">Copy</button><span class="cmd">git</span> clone https://github.com/jere-mie/unslop.git
+<span class="cmd">cd</span> unslop
+<span class="cmd">zig</span> build -Doptimize=ReleaseFast</pre>
+          <p style="color:var(--muted);font-size:0.82rem;margin-top:0.6rem;">The binary appears at <code style="color:var(--text)">zig-out/bin/unslop</code>.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── Usage ─────────────────────────────────────────────────────────── -->
+<section id="usage">
+  <div class="container">
+    <div class="section-header">
+      <h2>Usage</h2>
+      <div class="rule"></div>
+    </div>
+
+    <div class="usage-grid">
+      <div>
+        <div class="code-label">Syntax</div>
+        <pre class="code-block"><button class="copy-code-btn" onclick="copyCode(this)">Copy</button>unslop [options] &lt;path&gt;</pre>
+
+        <div class="usage-example">
+          <h4>Examples</h4>
+          <pre class="code-block" style="margin-top:0.5rem"><button class="copy-code-btn" onclick="copyCode(this)">Copy</button><span class="comment"># Clean a single file in-place</span>
+unslop README.md
+
+<span class="comment"># Preview changes without touching the file</span>
+unslop --dry-run README.md
+
+<span class="comment"># Recursively clean all files in a directory</span>
+unslop -r ./docs
+
+<span class="comment"># Recursive dry-run across a whole repo</span>
+unslop -r --dry-run ./</pre>
+        </div>
+      </div>
+
+      <div>
+        <table class="options-table">
+          <thead>
+            <tr>
+              <th>Flag</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="option-flag">&lt;path&gt;</span></td>
+              <td><span class="option-desc">File or directory to process. Required.</span></td>
+            </tr>
+            <tr>
+              <td><span class="option-flag">-r, --recursive</span></td>
+              <td><span class="option-desc">Recursively process all files in a directory. Required when &lt;path&gt; is a directory.</span></td>
+            </tr>
+            <tr>
+              <td><span class="option-flag">--dry-run</span></td>
+              <td><span class="option-desc">Print transformed output to stdout. Does not modify any files. Useful for previewing changes or piping output.</span></td>
+            </tr>
+            <tr>
+              <td><span class="option-flag">-h, --help</span></td>
+              <td><span class="option-desc">Show the help message and exit.</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top:1.5rem;padding:1rem;border:1px solid var(--border);background:var(--surface);">
+          <p style="font-size:0.85rem;color:var(--muted);margin:0;">
+            <strong style="color:var(--text);">Safe by design.</strong>
+            When writing in-place, <code style="color:var(--accent)">unslop</code> uses atomic rename operations
+            (<code>file.tmp</code> &rarr; <code>file</code>) so your data is never left in a half-written state.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Why Zig ───────────────────────────────────────────────────────── -->
+<section id="why-zig">
+  <div class="container">
+    <div class="section-header">
+      <h2>Why Zig?</h2>
+      <div class="rule"></div>
+    </div>
+    <div class="why-zig-inner">
+      <div class="big-zig"><span>Z</span>ig</div>
+      <div class="why-zig-text">
+        <p>
+          <strong>Zig treats UTF-8 as a first-class citizen.</strong> This matters enormously for
+          a tool that operates at the byte level. The smart-quote and em-dash characters are
+          multi-byte UTF-8 sequences (3 bytes each), and Zig lets us slice and match them with
+          minimal overhead and zero ambiguity.
+        </p>
+        <p>
+          <strong>Zero dependencies, one binary.</strong> Zig compiles to a fully static native
+          binary. No runtime, no interpreter, no package manager hell. Drop the binary on any
+          machine and it runs.
+        </p>
+        <p>
+          <strong>Performance without ceremony.</strong> Processing a repository of thousands of
+          Markdown files takes milliseconds. The entire operation fits comfortably in CPU cache.
+          Zig's <code>ReleaseFast</code> build mode eliminates every unnecessary cycle.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Footer ───────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-brand"><span>un</span>slop</div>
+    <div class="footer-links">
+      <a href="https://github.com/jere-mie/unslop" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/jere-mie/unslop/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="#tool">Try Online</a>
+    </div>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
