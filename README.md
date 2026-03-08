@@ -20,7 +20,7 @@ AI models love:
 
 * **Humanize AI Text:** Instantly make AI-generated docs look like they were written in a standard text editor.
 * **Recursively Sanitizes:** Clean an entire repository of AI-generated `.md` or `.txt` files in milliseconds.
-* **Atomic Operations:** Safe file handling—`unslop` never leaves a file half-written.
+* **Atomic Operations:** Safe file handling. `unslop` never leaves a file half-written.
 * **Zero Dependencies:** One tiny, static binary. No runtimes required.
 * **Universal Compatibility:** Native support for Windows, macOS, and Linux.
 
