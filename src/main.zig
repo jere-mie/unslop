@@ -4,7 +4,7 @@ const mem = std.mem;
 const process = std.process;
 
 fn printUsage() void {
-    fs.File.stderr().deprecatedWriter().writeAll(
+    fs.File.stderr().writeAll(
         \\Usage: unslop [options] <path>
         \\
         \\Arguments:
@@ -88,13 +88,12 @@ fn processFile(
     const max_size = 1024 * 1024 * 1024; // 1 GiB limit
     const input = blk: {
         const file = base_dir.openFile(path, .{}) catch |err| {
-            fs.File.stderr().deprecatedWriter().print(
-                "error: cannot open '{s}': {s}\n",
-                .{ path, @errorName(err) },
-            ) catch {};
+            var open_err_buf: [4096]u8 = undefined;
+            const open_err_msg = std.fmt.bufPrint(&open_err_buf, "error: cannot open '{s}': {s}\n", .{ path, @errorName(err) }) catch "error: cannot open file\n";
+            fs.File.stderr().writeAll(open_err_msg) catch {};
             return err;
         };
-        const data = file.deprecatedReader().readAllAlloc(allocator, max_size) catch |err| {
+        const data = file.readToEndAlloc(allocator, max_size) catch |err| {
             file.close();
             return err;
         };
@@ -109,7 +108,11 @@ fn processFile(
 
     if (dry_run) {
         const stdout = fs.File.stdout();
-        if (show_header) try stdout.deprecatedWriter().print("==> {s} <==\n", .{path});
+        if (show_header) {
+            var hdr_buf: [4096]u8 = undefined;
+            const hdr = try std.fmt.bufPrint(&hdr_buf, "==> {s} <==\n", .{path});
+            try stdout.writeAll(hdr);
+        }
         try stdout.writeAll(output.items);
         if (show_header) try stdout.writeAll("\n");
     } else {
@@ -118,10 +121,9 @@ fn processFile(
         defer allocator.free(tmp_path);
 
         const tmp_file = base_dir.createFile(tmp_path, .{}) catch |err| {
-            fs.File.stderr().deprecatedWriter().print(
-                "error: cannot create '{s}': {s}\n",
-                .{ tmp_path, @errorName(err) },
-            ) catch {};
+            var create_err_buf: [4096]u8 = undefined;
+            const create_err_msg = std.fmt.bufPrint(&create_err_buf, "error: cannot create '{s}': {s}\n", .{ tmp_path, @errorName(err) }) catch "error: cannot create tmp file\n";
+            fs.File.stderr().writeAll(create_err_msg) catch {};
             return err;
         };
 
@@ -137,7 +139,8 @@ fn processFile(
             return err;
         };
 
-        try fs.File.stdout().deprecatedWriter().print("processed: {s}\n", .{path});
+        var proc_buf: [4096]u8 = undefined;
+        try fs.File.stdout().writeAll(try std.fmt.bufPrint(&proc_buf, "processed: {s}\n", .{path}));
     }
 }
 
@@ -187,7 +190,7 @@ pub fn main() !void {
             return;
         } else if (arg.len > 0 and arg[0] != '-') {
             if (input_path != null) {
-                fs.File.stderr().deprecatedWriter().writeAll(
+                fs.File.stderr().writeAll(
                     "error: only one path argument is supported\n",
                 ) catch {};
                 printUsage();
@@ -195,17 +198,16 @@ pub fn main() !void {
             }
             input_path = arg;
         } else {
-            fs.File.stderr().deprecatedWriter().print(
-                "error: unknown flag '{s}'\n",
-                .{arg},
-            ) catch {};
+            var flag_err_buf: [4096]u8 = undefined;
+            const flag_err_msg = std.fmt.bufPrint(&flag_err_buf, "error: unknown flag '{s}'\n", .{arg}) catch "error: unknown flag\n";
+            fs.File.stderr().writeAll(flag_err_msg) catch {};
             printUsage();
             process.exit(1);
         }
     }
 
     const the_path = input_path orelse {
-        fs.File.stderr().deprecatedWriter().writeAll(
+        fs.File.stderr().writeAll(
             "error: missing path argument\n",
         ) catch {};
         printUsage();
@@ -223,10 +225,9 @@ pub fn main() !void {
 
     if (is_dir) {
         if (!recursive) {
-            fs.File.stderr().deprecatedWriter().print(
-                "error: '{s}' is a directory; use -r/--recursive to process directories\n",
-                .{the_path},
-            ) catch {};
+            var dir_err_buf: [4096]u8 = undefined;
+            const dir_err_msg = std.fmt.bufPrint(&dir_err_buf, "error: '{s}' is a directory; use -r/--recursive to process directories\n", .{the_path}) catch "error: path is a directory; use -r/--recursive\n";
+            fs.File.stderr().writeAll(dir_err_msg) catch {};
             process.exit(1);
         }
         try processDir(allocator, cwd, the_path, dry_run);
