@@ -2,6 +2,9 @@ const std = @import("std");
 const fs = std.fs;
 const mem = std.mem;
 const process = std.process;
+const build_options = @import("build_options");
+
+const version = build_options.version;
 
 fn printUsage() void {
     fs.File.stderr().writeAll(
@@ -14,6 +17,7 @@ fn printUsage() void {
         \\  -r, --recursive  Recursively process directories
         \\      --dry-run    Print transformed output to stdout; do not modify files
         \\  -h, --help       Show this help message
+        \\      --version    Print version and exit
         \\
     ) catch {};
 }
@@ -95,6 +99,9 @@ fn processFile(
         };
         const data = file.readToEndAlloc(allocator, max_size) catch |err| {
             file.close();
+            var read_err_buf: [4096]u8 = undefined;
+            const read_err_msg = std.fmt.bufPrint(&read_err_buf, "error: cannot read '{s}': {s}\n", .{ path, @errorName(err) }) catch "error: cannot read file\n";
+            fs.File.stderr().writeAll(read_err_msg) catch {};
             return err;
         };
         file.close();
@@ -130,12 +137,18 @@ fn processFile(
         tmp_file.writeAll(output.items) catch |err| {
             tmp_file.close();
             base_dir.deleteFile(tmp_path) catch {};
+            var write_err_buf: [4096]u8 = undefined;
+            const write_err_msg = std.fmt.bufPrint(&write_err_buf, "error: cannot write '{s}': {s}\n", .{ tmp_path, @errorName(err) }) catch "error: cannot write tmp file\n";
+            fs.File.stderr().writeAll(write_err_msg) catch {};
             return err;
         };
         tmp_file.close();
 
         base_dir.rename(tmp_path, path) catch |err| {
             base_dir.deleteFile(tmp_path) catch {};
+            var rename_err_buf: [4096]u8 = undefined;
+            const rename_err_msg = std.fmt.bufPrint(&rename_err_buf, "error: cannot replace '{s}': {s}\n", .{ path, @errorName(err) }) catch "error: cannot replace file\n";
+            fs.File.stderr().writeAll(rename_err_msg) catch {};
             return err;
         };
 
@@ -150,17 +163,29 @@ fn processDir(
     dir_path: []const u8,
     dry_run: bool,
 ) !void {
-    var dir = try cwd.openDir(dir_path, .{ .iterate = true });
+    var dir = cwd.openDir(dir_path, .{ .iterate = true }) catch |err| {
+        var buf: [4096]u8 = undefined;
+        const msg = std.fmt.bufPrint(&buf, "warning: skipping '{s}': {s}\n", .{ dir_path, @errorName(err) }) catch "warning: skipping directory\n";
+        fs.File.stderr().writeAll(msg) catch {};
+        return;
+    };
     defer dir.close();
 
     var iter = dir.iterate();
-    while (try iter.next()) |entry| {
+    while (true) {
+        const entry = iter.next() catch |err| {
+            var buf: [4096]u8 = undefined;
+            const msg = std.fmt.bufPrint(&buf, "warning: error reading '{s}': {s}\n", .{ dir_path, @errorName(err) }) catch "warning: error reading directory\n";
+            fs.File.stderr().writeAll(msg) catch {};
+            break;
+        } orelse break;
+
         const entry_path = try fs.path.join(allocator, &.{ dir_path, entry.name });
         defer allocator.free(entry_path);
 
         switch (entry.kind) {
-            .file => try processFile(allocator, cwd, entry_path, dry_run, true),
-            .directory => try processDir(allocator, cwd, entry_path, dry_run),
+            .file => processFile(allocator, cwd, entry_path, dry_run, true) catch {},
+            .directory => processDir(allocator, cwd, entry_path, dry_run) catch {},
             else => {},
         }
     }
@@ -187,6 +212,11 @@ pub fn main() !void {
             dry_run = true;
         } else if (mem.eql(u8, arg, "--help") or mem.eql(u8, arg, "-h")) {
             printUsage();
+            return;
+        } else if (mem.eql(u8, arg, "--version")) {
+            var ver_buf: [256]u8 = undefined;
+            const ver_msg = std.fmt.bufPrint(&ver_buf, "unslop {s}\n", .{version}) catch "unslop\n";
+            fs.File.stdout().writeAll(ver_msg) catch {};
             return;
         } else if (arg.len > 0 and arg[0] != '-') {
             if (input_path != null) {
