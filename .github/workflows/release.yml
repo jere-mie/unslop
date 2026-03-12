@@ -8,6 +8,9 @@ on:
         required: true
         type: string
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -45,7 +48,7 @@ jobs:
             bin_ext: ".wasm"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Zig
         uses: mlugg/setup-zig@v2
@@ -69,7 +72,7 @@ jobs:
           echo "BINARY_NAME=$BINARY_NAME" >> "$GITHUB_ENV"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unslop-${{ matrix.os_name }}-${{ matrix.arch_name }}
           path: ${{ env.BINARY_NAME }}
@@ -81,7 +84,7 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
