@@ -855,6 +855,21 @@
         text-decoration: none;
     }
 
+    .footer-author {
+        font-family: 'Lora', serif;
+        font-size: 0.82rem;
+        font-weight: 400;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--muted);
+        margin-left: 0.5rem;
+    }
+
+    .footer-author:hover {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
     /* ─── Page load animation ───────────────────────────────────────── */
     @keyframes fade-up {
         from {
