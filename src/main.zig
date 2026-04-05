@@ -6,6 +6,182 @@ const build_options = @import("build_options");
 
 const version = build_options.version;
 
+const IgnoreRule = struct {
+    pattern: []const u8,
+    anchored: bool,
+    directory_only: bool,
+    has_slash: bool,
+    negated: bool,
+};
+
+const IgnoreMatcher = struct {
+    allocator: mem.Allocator,
+    rules: std.ArrayList(IgnoreRule),
+
+    fn init(allocator: mem.Allocator) IgnoreMatcher {
+        return .{
+            .allocator = allocator,
+            .rules = .empty,
+        };
+    }
+
+    fn deinit(self: *IgnoreMatcher) void {
+        for (self.rules.items) |rule| {
+            self.allocator.free(rule.pattern);
+        }
+        self.rules.deinit(self.allocator);
+    }
+
+    fn loadDefaults(self: *IgnoreMatcher) !void {
+        const defaults = [_][]const u8{
+            // --- Version Control ---
+            ".git/",
+            ".hg/",
+            ".svn/",
+            ".fossil/",
+
+            // --- Zig Specific ---
+            "zig-out/",
+            "zig-cache/",
+            ".zig-cache/",
+
+            // --- JavaScript / Web Ecosystem ---
+            "node_modules/",
+            "bower_components/",
+            "dist/",
+            "build/",
+            "out/",
+            ".next/",
+            ".nuxt/",
+            ".svelte-kit/",
+            "coverage/",
+            ".nyc_output/",
+
+            // --- Python Ecosystem ---
+            "__pycache__/",
+            ".venv/",
+            "venv/",
+            "env/",
+            ".pytest_cache/",
+            ".mypy_cache/",
+
+            // --- Compiled Languages (C/C++, Rust, Go) ---
+            "target/",      // Rust
+            "cmake-build-debug/",
+            "cmake-build-release/",
+            ".pnpm-store/",
+
+            // --- IDEs & Editors ---
+            ".vscode/",
+            ".idea/",
+            ".vs/",
+            "*.swp",       // Vim swap files
+            ".DS_Store",   // macOS metadata
+            "Thumbs.db",   // Windows thumbnail cache
+            
+            // --- Misc / Security ---
+            ".env",
+            ".env.local",
+        };
+
+        for (defaults) |pattern| {
+            try self.addPatternLine(pattern);
+        }
+    }
+
+    fn loadGitignore(self: *IgnoreMatcher, cwd: fs.Dir, root_path: []const u8) !void {
+        const gitignore_path = try fs.path.join(self.allocator, &.{ root_path, ".gitignore" });
+        defer self.allocator.free(gitignore_path);
+
+        const file = cwd.openFile(gitignore_path, .{}) catch |err| switch (err) {
+            error.FileNotFound => return,
+            else => {
+                var buf: [4096]u8 = undefined;
+                const msg = std.fmt.bufPrint(&buf, "warning: cannot read '{s}': {s}\n", .{ gitignore_path, @errorName(err) }) catch "warning: cannot read .gitignore\n";
+                fs.File.stderr().writeAll(msg) catch {};
+                return;
+            },
+        };
+        defer file.close();
+
+        const contents = file.readToEndAlloc(self.allocator, 1024 * 1024) catch |err| {
+            var buf: [4096]u8 = undefined;
+            const msg = std.fmt.bufPrint(&buf, "warning: cannot read '{s}': {s}\n", .{ gitignore_path, @errorName(err) }) catch "warning: cannot read .gitignore\n";
+            fs.File.stderr().writeAll(msg) catch {};
+            return;
+        };
+        defer self.allocator.free(contents);
+
+        var lines = std.mem.splitScalar(u8, contents, '\n');
+        var first_line = true;
+        while (lines.next()) |line_raw| {
+            var line = std.mem.trimRight(u8, line_raw, "\r\t ");
+            if (first_line) {
+                first_line = false;
+                line = std.mem.trimLeft(u8, line, "\xEF\xBB\xBF");
+            }
+            try self.addPatternLine(line);
+        }
+    }
+
+    fn addPatternLine(self: *IgnoreMatcher, line_raw: []const u8) !void {
+        if (line_raw.len == 0) return;
+
+        var line = line_raw;
+        var negated = false;
+
+        if (line[0] == '\\' and line.len > 1 and (line[1] == '#' or line[1] == '!')) {
+            line = line[1..];
+        } else if (line[0] == '#') {
+            return;
+        } else if (line[0] == '!') {
+            negated = true;
+            line = line[1..];
+        }
+
+        if (line.len == 0) return;
+
+        var anchored = false;
+        if (line[0] == '/') {
+            anchored = true;
+            line = line[1..];
+        }
+
+        var directory_only = false;
+        while (line.len > 0 and line[line.len - 1] == '/') {
+            directory_only = true;
+            line = line[0 .. line.len - 1];
+        }
+
+        if (line.len == 0) return;
+
+        const owned_pattern = try self.allocator.dupe(u8, line);
+        try self.rules.append(self.allocator, .{
+            .pattern = owned_pattern,
+            .anchored = anchored,
+            .directory_only = directory_only,
+            .has_slash = std.mem.indexOfScalar(u8, line, '/') != null,
+            .negated = negated,
+        });
+    }
+
+    fn shouldSkip(self: *const IgnoreMatcher, rel_path: []const u8, is_dir: bool) bool {
+        var ignored = false;
+        for (self.rules.items) |rule| {
+            if (rule.directory_only and !is_dir) continue;
+            if (matchesRule(rule, rel_path)) {
+                ignored = !rule.negated;
+            }
+        }
+        return ignored;
+    }
+};
+
+const PendingEntry = struct {
+    name: []const u8,
+    kind: fs.File.Kind,
+};
+
 fn printUsage() void {
     fs.File.stderr().writeAll(
         \\Usage: unslop [options] <path>
@@ -16,10 +192,97 @@ fn printUsage() void {
         \\Options:
         \\  -r, --recursive  Recursively process directories
         \\      --dry-run    Print transformed output to stdout; do not modify files
+        \\      --skip-gitignored
+        \\                   Skip common generated folders and entries from <path>/.gitignore
+        \\      --no-skip-gitignored
+        \\                   Disable .gitignore/default skipping while recursing
         \\  -h, --help       Show this help message
         \\      --version    Print version and exit
         \\
     ) catch {};
+}
+
+fn matchesRule(rule: IgnoreRule, rel_path: []const u8) bool {
+    if (!rule.has_slash) {
+        if (rule.anchored) {
+            return globMatch(rule.pattern, rel_path);
+        }
+
+        var segments = std.mem.splitScalar(u8, rel_path, '/');
+        while (segments.next()) |segment| {
+            if (globMatch(rule.pattern, segment)) return true;
+        }
+        return false;
+    }
+
+    if (rule.anchored) {
+        return globMatch(rule.pattern, rel_path);
+    }
+
+    var start: usize = 0;
+
+    while (true) {
+        if (globMatch(rule.pattern, rel_path[start..])) return true;
+        const next_sep = std.mem.indexOfScalarPos(u8, rel_path, start, '/') orelse break;
+        start = next_sep + 1;
+    }
+
+    return false;
+}
+
+fn globMatch(pattern: []const u8, text: []const u8) bool {
+    return globMatchAt(pattern, 0, text, 0);
+}
+
+fn globMatchAt(pattern: []const u8, pattern_index: usize, text: []const u8, text_index: usize) bool {
+    var p = pattern_index;
+    var t = text_index;
+
+    while (p < pattern.len) {
+        const token = pattern[p];
+        switch (token) {
+            '*' => {
+                const double_star = p + 1 < pattern.len and pattern[p + 1] == '*';
+                p += if (double_star) 2 else 1;
+
+                while (p < pattern.len and pattern[p] == '*') {
+                    p += 1;
+                }
+
+                if (p == pattern.len) {
+                    return double_star or std.mem.indexOfScalar(u8, text[t..], '/') == null;
+                }
+
+                var scan = t;
+                while (true) {
+                    if (globMatchAt(pattern, p, text, scan)) return true;
+                    if (scan == text.len) break;
+                    if (!double_star and text[scan] == '/') break;
+                    scan += 1;
+                }
+                return false;
+            },
+            '?' => {
+                if (t == text.len or text[t] == '/') return false;
+                p += 1;
+                t += 1;
+            },
+            '\\' => {
+                p += 1;
+                if (p == pattern.len) return false;
+                if (t == text.len or pattern[p] != text[t]) return false;
+                p += 1;
+                t += 1;
+            },
+            else => {
+                if (t == text.len or token != text[t]) return false;
+                p += 1;
+                t += 1;
+            },
+        }
+    }
+
+    return t == text.len;
 }
 
 /// Transforms `input` bytes, replacing known "LLM accent" Unicode sequences
@@ -160,32 +423,61 @@ fn processFile(
 fn processDir(
     allocator: mem.Allocator,
     cwd: fs.Dir,
-    dir_path: []const u8,
+    full_dir_path: []const u8,
+    rel_dir_path: []const u8,
     dry_run: bool,
+    ignore_matcher: ?*const IgnoreMatcher,
 ) !void {
-    var dir = cwd.openDir(dir_path, .{ .iterate = true }) catch |err| {
+    var dir = cwd.openDir(full_dir_path, .{ .iterate = true }) catch |err| {
         var buf: [4096]u8 = undefined;
-        const msg = std.fmt.bufPrint(&buf, "warning: skipping '{s}': {s}\n", .{ dir_path, @errorName(err) }) catch "warning: skipping directory\n";
+        const msg = std.fmt.bufPrint(&buf, "warning: skipping '{s}': {s}\n", .{ full_dir_path, @errorName(err) }) catch "warning: skipping directory\n";
         fs.File.stderr().writeAll(msg) catch {};
         return;
     };
     defer dir.close();
 
+    var pending_entries: std.ArrayList(PendingEntry) = .empty;
+    defer {
+        for (pending_entries.items) |entry| {
+            allocator.free(entry.name);
+        }
+        pending_entries.deinit(allocator);
+    }
+
     var iter = dir.iterate();
     while (true) {
         const entry = iter.next() catch |err| {
             var buf: [4096]u8 = undefined;
-            const msg = std.fmt.bufPrint(&buf, "warning: error reading '{s}': {s}\n", .{ dir_path, @errorName(err) }) catch "warning: error reading directory\n";
+            const msg = std.fmt.bufPrint(&buf, "warning: error reading '{s}': {s}\n", .{ full_dir_path, @errorName(err) }) catch "warning: error reading directory\n";
             fs.File.stderr().writeAll(msg) catch {};
             break;
         } orelse break;
 
-        const entry_path = try fs.path.join(allocator, &.{ dir_path, entry.name });
-        defer allocator.free(entry_path);
+        try pending_entries.append(allocator, .{
+            .name = try allocator.dupe(u8, entry.name),
+            .kind = entry.kind,
+        });
+    }
+
+    for (pending_entries.items) |entry| {
+        const full_entry_path = try fs.path.join(allocator, &.{ full_dir_path, entry.name });
+        defer allocator.free(full_entry_path);
+
+        const rel_entry_path = if (rel_dir_path.len == 0)
+            try allocator.dupe(u8, entry.name)
+        else
+            try std.fmt.allocPrint(allocator, "{s}/{s}", .{ rel_dir_path, entry.name });
+        defer allocator.free(rel_entry_path);
+
+        if (ignore_matcher) |matcher| {
+            if (matcher.shouldSkip(rel_entry_path, entry.kind == .directory)) {
+                continue;
+            }
+        }
 
         switch (entry.kind) {
-            .file => processFile(allocator, cwd, entry_path, dry_run, true) catch {},
-            .directory => processDir(allocator, cwd, entry_path, dry_run) catch {},
+            .file => processFile(allocator, cwd, full_entry_path, dry_run, true) catch {},
+            .directory => processDir(allocator, cwd, full_entry_path, rel_entry_path, dry_run, ignore_matcher) catch {},
             else => {},
         }
     }
@@ -201,6 +493,7 @@ pub fn main() !void {
 
     var recursive = false;
     var dry_run = false;
+    var skip_gitignored = true;
     var input_path: ?[]const u8 = null;
 
     var i: usize = 1;
@@ -210,6 +503,10 @@ pub fn main() !void {
             recursive = true;
         } else if (mem.eql(u8, arg, "--dry-run")) {
             dry_run = true;
+        } else if (mem.eql(u8, arg, "--skip-gitignored")) {
+            skip_gitignored = true;
+        } else if (mem.eql(u8, arg, "--no-skip-gitignored")) {
+            skip_gitignored = false;
         } else if (mem.eql(u8, arg, "--help") or mem.eql(u8, arg, "-h")) {
             printUsage();
             return;
@@ -260,8 +557,60 @@ pub fn main() !void {
             fs.File.stderr().writeAll(dir_err_msg) catch {};
             process.exit(1);
         }
-        try processDir(allocator, cwd, the_path, dry_run);
+
+        var ignore_matcher = IgnoreMatcher.init(allocator);
+        defer ignore_matcher.deinit();
+
+        if (skip_gitignored) {
+            try ignore_matcher.loadDefaults();
+            try ignore_matcher.loadGitignore(cwd, the_path);
+        }
+
+        try processDir(allocator, cwd, the_path, "", dry_run, if (skip_gitignored) &ignore_matcher else null);
     } else {
         try processFile(allocator, cwd, the_path, dry_run, false);
     }
+}
+
+test "default ignore rules skip common generated directories" {
+    var matcher = IgnoreMatcher.init(std.testing.allocator);
+    defer matcher.deinit();
+
+    try matcher.loadDefaults();
+
+    try std.testing.expect(matcher.shouldSkip("node_modules", true));
+    try std.testing.expect(matcher.shouldSkip("src/node_modules", true));
+    try std.testing.expect(matcher.shouldSkip("dist", true));
+    try std.testing.expect(!matcher.shouldSkip("src/dist.txt", false));
+}
+
+test "gitignore rules support comments wildcards and negation" {
+    var matcher = IgnoreMatcher.init(std.testing.allocator);
+    defer matcher.deinit();
+
+    try matcher.addPatternLine("# comment");
+    try matcher.addPatternLine("*.log");
+    try matcher.addPatternLine("!keep.log");
+    try matcher.addPatternLine("cache/");
+
+    try std.testing.expect(matcher.shouldSkip("app.log", false));
+    try std.testing.expect(matcher.shouldSkip("nested/error.log", false));
+    try std.testing.expect(!matcher.shouldSkip("nested/keep.log", false));
+    try std.testing.expect(matcher.shouldSkip("nested/cache", true));
+    try std.testing.expect(!matcher.shouldSkip("nested/cache.txt", false));
+}
+
+test "gitignore rules support rooted and nested path patterns" {
+    var matcher = IgnoreMatcher.init(std.testing.allocator);
+    defer matcher.deinit();
+
+    try matcher.addPatternLine("/root-only.txt");
+    try matcher.addPatternLine("generated/output.txt");
+    try matcher.addPatternLine("**/tmp/");
+
+    try std.testing.expect(matcher.shouldSkip("root-only.txt", false));
+    try std.testing.expect(!matcher.shouldSkip("nested/root-only.txt", false));
+    try std.testing.expect(matcher.shouldSkip("generated/output.txt", false));
+    try std.testing.expect(matcher.shouldSkip("src/generated/output.txt", false));
+    try std.testing.expect(matcher.shouldSkip("src/tmp", true));
 }

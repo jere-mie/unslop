@@ -20,6 +20,7 @@ AI models love:
 
 * **Humanize AI Text:** Instantly make AI-generated docs look like they were written in a standard text editor.
 * **Recursively Sanitizes:** Clean an entire repository of AI-generated `.md` or `.txt` files in milliseconds.
+* **Skips Gitignored Paths by Default:** Recursive runs ignore common generated folders plus entries from the root `.gitignore` unless you opt out.
 * **Atomic Operations:** Safe file handling. `unslop` never leaves a file half-written.
 * **Zero Dependencies:** One tiny, static binary. No runtimes required.
 * **Universal Compatibility:** Native support for Windows, macOS, and Linux.
@@ -69,6 +70,20 @@ wasmtime --dir=. unslop.wasm myfile.txt
 
 ```bash
 zig build -Doptimize=ReleaseFast
+```
+
+## Usage
+
+```bash
+unslop --recursive .
+```
+
+When recursing through a directory, `unslop` now skips a small set of common generated folders by default, including `.git`, `node_modules`, `dist`, `coverage`, `zig-out`, and `.zig-cache`. It also reads the root `.gitignore` from the directory you pass in and skips matching entries.
+
+If you want to process everything under the directory anyway, disable that behavior explicitly:
+
+```bash
+unslop --recursive --no-skip-gitignored .
 ```
 
 ## 🛠 Mapping Table
