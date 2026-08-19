@@ -288,59 +288,114 @@ fn globMatchAt(pattern: []const u8, pattern_index: usize, text: []const u8, text
 /// Transforms `input` bytes, replacing known "LLM accent" Unicode sequences
 /// with ASCII equivalents, appending the result to `output`.
 ///
-/// Replacements (UTF-8 encoded):
-///   U+201C / U+201D  E2 80 9C / 9D  curly double quotes  ->  "
-///   U+2018 / U+2019  E2 80 98 / 99  curly single quotes  ->  '
-///   U+2014           E2 80 94       em-dash               ->  -
-///   U+2013           E2 80 93       en-dash               ->  -
-///   U+2026           E2 80 A6       ellipsis              ->  ...
-///   U+00A0           C2 A0          non-breaking space    ->  (space)
+const Replacement = struct {
+    from: []const u8,
+    to: []const u8,
+};
+
+// Keep this table ASCII-only so the source stays easy to compile and review.
+// The input strings are UTF-8 byte sequences written with hexadecimal escapes.
+const replacements = [_]Replacement{
+    // Quotes and apostrophes
+    .{ .from = "\xE2\x80\x98", .to = "'" },
+    .{ .from = "\xE2\x80\x99", .to = "'" },
+    .{ .from = "\xE2\x80\x9A", .to = "'" },
+    .{ .from = "\xE2\x80\x9B", .to = "'" },
+    .{ .from = "\xE2\x80\x9C", .to = "\"" },
+    .{ .from = "\xE2\x80\x9D", .to = "\"" },
+    .{ .from = "\xE2\x80\x9E", .to = "\"" },
+    .{ .from = "\xE2\x80\x9F", .to = "\"" },
+    .{ .from = "\xE2\x80\xB2", .to = "'" },
+    .{ .from = "\xE2\x80\xB3", .to = "\"" },
+
+    // Dashes and hyphen-like characters
+    .{ .from = "\xE2\x80\x90", .to = "-" },
+    .{ .from = "\xE2\x80\x91", .to = "-" },
+    .{ .from = "\xE2\x80\x92", .to = "-" },
+    .{ .from = "\xE2\x80\x93", .to = "-" },
+    .{ .from = "\xE2\x80\x94", .to = "-" },
+    .{ .from = "\xE2\x80\x95", .to = "-" },
+    .{ .from = "\xE2\x88\x92", .to = "-" },
+    .{ .from = "\xE2\x80\xA6", .to = "..." },
+
+    // Directional arrows
+    .{ .from = "\xE2\x86\x90", .to = "<-" },
+    .{ .from = "\xE2\x86\x92", .to = "->" },
+    .{ .from = "\xE2\x86\x94", .to = "<->" },
+    .{ .from = "\xE2\x86\x91", .to = "^" },
+    .{ .from = "\xE2\x86\x93", .to = "v" },
+    .{ .from = "\xE2\x86\x95", .to = "^v" },
+    .{ .from = "\xE2\x87\x90", .to = "<=" },
+    .{ .from = "\xE2\x87\x92", .to = "=>" },
+    .{ .from = "\xE2\x87\x94", .to = "<=>" },
+
+    // Bullets, check marks, and common list symbols
+    .{ .from = "\xE2\x80\xA2", .to = "*" },
+    .{ .from = "\xE2\x80\xA3", .to = ">" },
+    .{ .from = "\xE2\x81\x83", .to = "-" },
+    .{ .from = "\xE2\x98\x90", .to = "[ ]" },
+    .{ .from = "\xE2\x98\x91", .to = "[x]" },
+    .{ .from = "\xE2\x98\x92", .to = "[x]" },
+    .{ .from = "\xE2\x9C\x93", .to = "[x]" },
+    .{ .from = "\xE2\x9C\x94", .to = "[x]" },
+    .{ .from = "\xE2\x9C\x97", .to = "[ ]" },
+    .{ .from = "\xE2\x9C\x98", .to = "[ ]" },
+    .{ .from = "\xE2\x98\x85", .to = "*" },
+    .{ .from = "\xE2\x98\x86", .to = "*" },
+    .{ .from = "\xE2\x97\x8F", .to = "*" },
+    .{ .from = "\xE2\x97\x8B", .to = "o" },
+
+    // Math and comparison symbols
+    .{ .from = "\xC2\xB1", .to = "+/-" },
+    .{ .from = "\xC3\x97", .to = "x" },
+    .{ .from = "\xC3\xB7", .to = "/" },
+    .{ .from = "\xE2\x89\xA0", .to = "!=" },
+    .{ .from = "\xE2\x89\xA4", .to = "<=" },
+    .{ .from = "\xE2\x89\xA5", .to = ">=" },
+    .{ .from = "\xE2\x89\x88", .to = "~=" },
+    .{ .from = "\xE2\x88\x9E", .to = "inf" },
+
+    // Whitespace and invisible formatting characters
+    .{ .from = "\xC2\xA0", .to = " " },
+    .{ .from = "\xE2\x80\x80", .to = " " },
+    .{ .from = "\xE2\x80\x81", .to = " " },
+    .{ .from = "\xE2\x80\x82", .to = " " },
+    .{ .from = "\xE2\x80\x83", .to = " " },
+    .{ .from = "\xE2\x80\x84", .to = " " },
+    .{ .from = "\xE2\x80\x85", .to = " " },
+    .{ .from = "\xE2\x80\x86", .to = " " },
+    .{ .from = "\xE2\x80\x87", .to = " " },
+    .{ .from = "\xE2\x80\x88", .to = " " },
+    .{ .from = "\xE2\x80\x89", .to = " " },
+    .{ .from = "\xE2\x80\x8A", .to = " " },
+    .{ .from = "\xE2\x80\x8B", .to = "" },
+    .{ .from = "\xE2\x80\x8C", .to = "" },
+    .{ .from = "\xE2\x80\x8D", .to = "" },
+    .{ .from = "\xE2\x80\x8E", .to = "" },
+    .{ .from = "\xE2\x80\x8F", .to = "" },
+    .{ .from = "\xE2\x80\xAF", .to = " " },
+    .{ .from = "\xE2\x81\x9F", .to = " " },
+    .{ .from = "\xE2\x81\xA0", .to = "" },
+    .{ .from = "\xE3\x80\x80", .to = " " },
+    .{ .from = "\xEF\xBB\xBF", .to = "" },
+};
+
 fn transformBytes(input: []const u8, output: *std.ArrayList(u8), allocator: mem.Allocator) !void {
     var i: usize = 0;
     while (i < input.len) {
-        const b0 = input[i];
-        i += 1;
-        switch (b0) {
-            // Potential E2 80 XX sequence: smart quotes, em/en-dash, ellipsis
-            0xE2 => {
-                // Need at least 2 more bytes for a match
-                if (i + 1 < input.len and input[i] == 0x80) {
-                    const b2 = input[i + 1];
-                    i += 2;
-                    switch (b2) {
-                        0x9C, 0x9D => try output.append(allocator, '"'), // " " -> "
-                        0x98, 0x99 => try output.append(allocator, '\''), // ' ' -> '
-                        0x94, 0x93 => try output.append(allocator, '-'), // em/en-dash -> -
-                        0xA6 => try output.appendSlice(allocator, "..."), // ellipsis -> ...
-                        else => {
-                            try output.append(allocator, b0);
-                            try output.append(allocator, 0x80);
-                            try output.append(allocator, b2);
-                        },
-                    }
-                } else {
-                    // Insufficient bytes or b1 != 0x80: pass through as-is
-                    try output.append(allocator, b0);
-                    if (i < input.len) {
-                        try output.append(allocator, input[i]);
-                        i += 1;
-                    }
-                }
-            },
-            // Potential C2 A0 sequence: non-breaking space
-            0xC2 => {
-                if (i < input.len and input[i] == 0xA0) {
-                    try output.append(allocator, ' '); // NBSP -> space
-                    i += 1;
-                } else {
-                    try output.append(allocator, b0);
-                    if (i < input.len) {
-                        try output.append(allocator, input[i]);
-                        i += 1;
-                    }
-                }
-            },
-            else => try output.append(allocator, b0),
+        var replaced = false;
+        for (replacements) |replacement| {
+            if (mem.startsWith(u8, input[i..], replacement.from)) {
+                try output.appendSlice(allocator, replacement.to);
+                i += replacement.from.len;
+                replaced = true;
+                break;
+            }
+        }
+
+        if (!replaced) {
+            try output.append(allocator, input[i]);
+            i += 1;
         }
     }
 }
@@ -613,4 +668,24 @@ test "gitignore rules support rooted and nested path patterns" {
     try std.testing.expect(matcher.shouldSkip("generated/output.txt", false));
     try std.testing.expect(matcher.shouldSkip("src/generated/output.txt", false));
     try std.testing.expect(matcher.shouldSkip("src/tmp", true));
+}
+
+test "transform replaces common AI typography with ASCII" {
+    var output: std.ArrayList(u8) = .empty;
+    defer output.deinit(std.testing.allocator);
+
+    const input = "\xE2\x80\x9Cquoted\xE2\x80\x9D \xE2\x80\x94 \xE2\x86\x90\xE2\x86\x92 \xE2\x80\xA2 item \xE2\x9C\x93 \xE2\x89\xA4 10";
+    try transformBytes(input, &output, std.testing.allocator);
+
+    try std.testing.expectEqualStrings("\"quoted\" - <--> * item [x] <= 10", output.items);
+}
+
+test "transform removes invisible formatting and normalizes spaces" {
+    var output: std.ArrayList(u8) = .empty;
+    defer output.deinit(std.testing.allocator);
+
+    const input = "a\xC2\xA0b\xE2\x80\x8Bc\xE2\x80\x8Dd\xEF\xBB\xBF";
+    try transformBytes(input, &output, std.testing.allocator);
+
+    try std.testing.expectEqualStrings("a bcd", output.items);
 }

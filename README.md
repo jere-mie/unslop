@@ -13,6 +13,8 @@ AI models love:
 * **Em-dashes (`—`)** for long, rambling asides.
 * **Curly quotes (`“ ”`)** which can break certain compilers or shell scripts.
 * **Ellipses (`…`)** for "thoughtful" pauses.
+* **Arrows (`← →`)** in place of ASCII flow notation.
+* **Bullets, check marks, and math symbols** in otherwise plain-text files.
 
 `unslop` detects these multi-byte UTF-8 sequences and replaces them with the standard characters a human would actually type on a QWERTY keyboard.
 
@@ -95,6 +97,14 @@ unslop --recursive --no-skip-gitignored .
 | `—` (Em-dash) | `-` (Hyphen) | 3 bytes → 1 byte |
 | `–` (En-dash) | `-` (Hyphen) | 3 bytes → 1 byte |
 | `…` (Ellipsis) | `...` (Three dots) | 3 bytes → 3 bytes |
+| `←` / `→` (Arrows) | `<-` / `->` | 3 bytes → 2 bytes |
+| `↔` (Bidirectional arrow) | `<->` | 3 bytes → 3 bytes |
+| `⇒` / `⇐` (Double arrows) | `=>` / `<=` | 3 bytes → 2 bytes |
+| `•` / `★` (Bullets and stars) | `*` (Asterisk) | 3 bytes → 1 byte |
+| `✓` / `☑` (Checks) | `[x]` | 3 bytes → 3 bytes |
+| `×` / `÷` (Math operators) | `x` / `/` | 2 bytes → 1 byte |
+| `≤` / `≥` / `≠` (Comparisons) | `<=` / `>=` / `!=` | 3 bytes → 2 bytes |
+| `\u200B` / `\uFEFF` (Invisible marks) | empty | removed |
 
 ## 🏗 Why Zig?
 
