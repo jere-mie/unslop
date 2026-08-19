@@ -1,22 +1,62 @@
-/* ─── Core transform logic ─────────────────────────────────────────── */
+/* Core transform logic */
 const REPLACEMENTS = new Map([
-    ['\u201C', '"'],   // left double quote   "
-    ['\u201D', '"'],   // right double quote  "
-    ['\u2018', "'"],   // left single quote   '
-    ['\u2019', "'"],   // right single quote  '
-    ['\u2014', '-'],   // em dash             —
-    ['\u2013', '-'],   // en dash             –
-    ['\u2026', '...'], // ellipsis            …
-    ['\u00A0', ' '],   // non-breaking space
+    // Quotes and apostrophes
+    ['\u2018', "'"], ['\u2019', "'"], ['\u201A', "'"], ['\u201B', "'"],
+    ['\u201C', '"'], ['\u201D', '"'], ['\u201E', '"'], ['\u201F', '"'],
+    ['\u2032', "'"], ['\u2033', '"'],
+    // Dashes and ellipsis
+    ['\u2010', '-'], ['\u2011', '-'], ['\u2012', '-'], ['\u2013', '-'],
+    ['\u2014', '-'], ['\u2015', '-'], ['\u2043', '-'], ['\u2212', '-'],
+    ['\u2026', '...'],
+    // Directional arrows
+    ['\u2190', '<-'], ['\u2192', '->'], ['\u2194', '<->'],
+    ['\u2191', '^'], ['\u2193', 'v'], ['\u2195', '^v'],
+    ['\u21D0', '<='], ['\u21D2', '=>'], ['\u21D4', '<=>'],
+    // Bullets, check marks, and list symbols
+    ['\u2022', '*'], ['\u2023', '>'], ['\u2610', '[ ]'],
+    ['\u2611', '[x]'], ['\u2612', '[x]'], ['\u2713', '[x]'],
+    ['\u2714', '[x]'], ['\u2717', '[ ]'], ['\u2718', '[ ]'],
+    ['\u2605', '*'], ['\u2606', '*'], ['\u25CF', '*'], ['\u25CB', 'o'],
+    // Math and comparison symbols
+    ['\u00B1', '+/-'], ['\u00D7', 'x'], ['\u00F7', '/'],
+    ['\u2260', '!='], ['\u2264', '<='], ['\u2265', '>='],
+    ['\u2248', '~='], ['\u221E', 'inf'],
+    // Whitespace and invisible formatting characters
+    ['\u00A0', ' '], ['\u2000', ' '], ['\u2001', ' '], ['\u2002', ' '],
+    ['\u2003', ' '], ['\u2004', ' '], ['\u2005', ' '], ['\u2006', ' '],
+    ['\u2007', ' '], ['\u2008', ' '], ['\u2009', ' '], ['\u200A', ' '],
+    ['\u200B', ''], ['\u200C', ''], ['\u200D', ''], ['\u200E', ''],
+    ['\u200F', ''], ['\u202F', ' '], ['\u205F', ' '], ['\u2060', ''],
+    ['\u3000', ' '], ['\uFEFF', ''],
 ]);
 
 const TYPE_KEY = {
     '\u201C': 'dquote', '\u201D': 'dquote',
+    '\u201E': 'dquote', '\u201F': 'dquote', '\u2033': 'dquote',
     '\u2018': 'squote', '\u2019': 'squote',
+    '\u201A': 'squote', '\u201B': 'squote', '\u2032': 'squote',
     '\u2014': 'emdash',
     '\u2013': 'endash',
+    '\u2010': 'dash', '\u2011': 'dash', '\u2012': 'dash',
+    '\u2015': 'dash', '\u2043': 'dash', '\u2212': 'dash',
     '\u2026': 'ellipsis',
-    '\u00A0': 'nbsp',
+    '\u2190': 'arrow', '\u2192': 'arrow', '\u2194': 'arrow',
+    '\u2191': 'arrow', '\u2193': 'arrow', '\u2195': 'arrow',
+    '\u21D0': 'arrow', '\u21D2': 'arrow', '\u21D4': 'arrow',
+    '\u2022': 'bullet', '\u2023': 'bullet', '\u2605': 'bullet',
+    '\u2606': 'bullet', '\u25CF': 'bullet', '\u25CB': 'bullet',
+    '\u2610': 'check', '\u2611': 'check', '\u2612': 'check',
+    '\u2713': 'check', '\u2714': 'check', '\u2717': 'check', '\u2718': 'check',
+    '\u00B1': 'symbol', '\u00D7': 'symbol', '\u00F7': 'symbol',
+    '\u2260': 'symbol', '\u2264': 'symbol', '\u2265': 'symbol',
+    '\u2248': 'symbol', '\u2212': 'dash', '\u221E': 'symbol',
+    '\u00A0': 'nbsp', '\u2000': 'nbsp', '\u2001': 'nbsp', '\u2002': 'nbsp',
+    '\u2003': 'nbsp', '\u2004': 'nbsp', '\u2005': 'nbsp', '\u2006': 'nbsp',
+    '\u2007': 'nbsp', '\u2008': 'nbsp', '\u2009': 'nbsp', '\u200A': 'nbsp',
+    '\u202F': 'nbsp', '\u205F': 'nbsp', '\u3000': 'nbsp',
+    '\u200B': 'invisible', '\u200C': 'invisible', '\u200D': 'invisible',
+    '\u200E': 'invisible', '\u200F': 'invisible', '\u2060': 'invisible',
+    '\uFEFF': 'invisible',
 };
 
 function escapeHtml(ch) {
@@ -31,7 +71,10 @@ function processText(rawInput) {
     const cleanParts = [];
     const htmlParts = [];
     let totalCount = 0;
-    const typeCounts = { dquote: 0, squote: 0, emdash: 0, endash: 0, ellipsis: 0, nbsp: 0 };
+    const typeCounts = {
+        dquote: 0, squote: 0, emdash: 0, endash: 0, dash: 0, ellipsis: 0,
+        arrow: 0, bullet: 0, check: 0, symbol: 0, nbsp: 0, invisible: 0,
+    };
 
     for (let i = 0; i < rawInput.length; i++) {
         const ch = rawInput[i];
@@ -79,8 +122,14 @@ const typeBadges = {
     squote: document.getElementById('badge-squote'),
     emdash: document.getElementById('badge-emdash'),
     endash: document.getElementById('badge-endash'),
+    dash: document.getElementById('badge-dash'),
     ellipsis: document.getElementById('badge-ellipsis'),
+    arrow: document.getElementById('badge-arrow'),
+    bullet: document.getElementById('badge-bullet'),
+    check: document.getElementById('badge-check'),
+    symbol: document.getElementById('badge-symbol'),
     nbsp: document.getElementById('badge-nbsp'),
+    invisible: document.getElementById('badge-invisible'),
 };
 
 let cleanOutput = '';
